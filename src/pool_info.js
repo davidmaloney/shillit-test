@@ -1,0 +1,20 @@
+import { LaunchpadPool, LaunchpadConfig, getPdaLaunchpadPoolId, DEVNET_PROGRAM_ID, LAUNCHPAD_PROGRAM, Curve } from "@raydium-io/raydium-sdk-v2";
+import { NATIVE_MINT } from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
+import fs from "fs";
+import { initSdk } from "./sdk.js";
+import { CLUSTER } from "./config.js";
+
+const raydium = await initSdk();
+const programId = CLUSTER === "devnet" ? DEVNET_PROGRAM_ID.LAUNCHPAD_PROGRAM : LAUNCHPAD_PROGRAM;
+const { mint } = JSON.parse(fs.readFileSync("./data/last-mint.json"));
+const poolId = getPdaLaunchpadPoolId(programId, new PublicKey(mint), NATIVE_MINT).publicKey;
+const r = await raydium.connection.getAccountInfo(poolId);
+const info = LaunchpadPool.decode(r.data);
+const cd = await raydium.connection.getAccountInfo(info.configId);
+const configInfo = LaunchpadConfig.decode(cd.data);
+const price = Curve.getPrice({ poolInfo: info, curveType: configInfo.curveType, decimalA: info.mintDecimalsA, decimalB: info.mintDecimalsB });
+console.log("pool price:", price.toString());
+console.log("status:", info.status.toString(), "realA:", info.realA.toString(), "realB:", info.realB.toString());
+console.log("virtualA:", info.virtualA.toString(), "virtualB:", info.virtualB.toString());
+process.exit();
