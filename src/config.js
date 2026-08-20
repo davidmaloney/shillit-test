@@ -1,17 +1,59 @@
 import BN from "bn.js";
-export const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
-export const CLUSTER = process.env.CLUSTER || "devnet";
-export const WALLET_FILE = "./data/wallet.json";
-export const TOKEN = { name: "SHILLit Test", symbol: "STC", decimals: 6, uri: "https://arweave.net/placeholder" };
+import {
+  DEVNET_PROGRAM_ID,
+  LAUNCHPAD_PLATFORM,
+} from "@raydium-io/raydium-sdk-v2";
+
+export const RPC_URL =
+  process.env.RPC_URL || "https://api.devnet.solana.com";
+
+export const CLUSTER =
+  process.env.CLUSTER || "devnet";
+
+export const WALLET_FILE =
+  "./data/wallet.json";
+
+export const TOKEN = {
+  name: "SHILLit Test",
+  symbol: "STC",
+  decimals: 6,
+  uri: "https://arweave.net/placeholder",
+};
+
 const D = TOKEN.decimals;
-export const SUPPLY = new BN(1_000_000_000).mul(new BN(10).pow(new BN(D)));
-export const TOTAL_SELL_A = SUPPLY.muln(50).divn(100);
-export const TOTAL_LOCKED = SUPPLY.muln(5).divn(100);
+
+export const SUPPLY =
+  new BN(1_000_000_000).mul(
+    new BN(10).pow(new BN(D))
+  );
+
+export const TOTAL_SELL_A =
+  SUPPLY.muln(50).divn(100);
+
+export const TOTAL_LOCKED =
+  SUPPLY.muln(5).divn(100);
+
 export const SOL_USD_PRICE = 77;
+
 export const TARGET_USD = 6000;
-export const TOTAL_FUND_RAISING_B = new BN(Math.round((TARGET_USD / SOL_USD_PRICE) * 1e9));
-export const CLIFF_PERIOD_SECONDS = new BN(3*365*24*60*60);
-export const UNLOCK_PERIOD_SECONDS = new BN(3*365*24*60*60);
-export const DEV_BUY_LAMPORTS = new BN(Math.round(0.5 * 1e9));
+
+export const TOTAL_FUND_RAISING_B =
+  new BN(
+    Math.round((TARGET_USD / SOL_USD_PRICE) * 1e9)
+  );
+
+export const CLIFF_PERIOD_SECONDS =
+  new BN(3 * 365 * 24 * 60 * 60);
+
+export const UNLOCK_PERIOD_SECONDS =
+  new BN(3 * 365 * 24 * 60 * 60);
+
+export const DEV_BUY_LAMPORTS =
+  new BN(Math.round(0.5 * 1e9));
+
 export const MIGRATE_TYPE = "cpmm";
-export const PLATFORM_ID = null;
+
+export const PLATFORM_ID =
+  CLUSTER === "devnet"
+    ? DEVNET_PROGRAM_ID.LAUNCHPAD_PLATFORM.toBase58()
+    : LAUNCHPAD_PLATFORM.toBase58();
