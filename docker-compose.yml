@@ -1,0 +1,8 @@
+services:
+  test:
+    build: .
+    container_name: shillit-test
+    working_dir: /app
+    command: tail -f /dev/null
+    volumes:
+      - ./data:/app/data
