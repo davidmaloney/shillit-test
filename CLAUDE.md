@@ -475,11 +475,65 @@ treasury wallet's pubkey, the claim transaction can never succeed no matter
 what — connecting the admin wallet is fundamentally the wrong wallet for
 this action.
 
-**Proposed fix** (not yet implemented — awaiting permission): change
-`AdminClaim.jsx`'s wallet gate (and/or add a second allowed wallet) so the
-claim button works when the **treasury wallet**
-(`ApYPhmmxRpwnGzfeEaxSCFUhaqqgVz1vL9uBfK5cgD1T`) is the one connected, since
-that's the wallet Raydium's program actually requires to sign.
+**Fix #1 — IMPLEMENTED & PUSHED to `tokensite` main**: changed
+`AdminClaim.jsx`'s `ADMIN_WALLET` constant from the admin/throwaway wallet
+to the treasury wallet (`ApYPhmmxRpwnGzfeEaxSCFUhaqqgVz1vL9uBfK5cgD1T`), so
+the button now only shows/works when the treasury wallet is connected —
+matching what Raydium's program actually requires. Confirmed by user: this
+worked, button now appears with treasury wallet connected.
+
+Note on user's mental model: the admin/throwaway wallet
+(`AdTfgvAQ1GqMMPMmJ8Jhm3YQBUcCpU1rkvqXqKDXyCXT`) was used to sign the
+one-time `createPlatformConfig` setup transaction when the platform was
+created. That's a one-off action — Raydium's on-chain `PlatformConfig`
+account has no admin/authority field at all (checked full field list
+against the pinned SDK), only `platformClaimFeeWallet`. So the admin wallet
+has no ongoing special permission; every claim always requires the treasury
+wallet itself to sign, no exceptions.
+
+**Fix #2 — IMPLEMENTED & PUSHED to `tokensite` main**: after Fix #1, claim
+hit a second bug — error `"cannot found mint info, mintB: ..., vaultB: ''"`.
+Root cause: `claimPlatformFees()` in `raydiumLaunch.js` explicitly passed
+`mintB: NATIVE_MINT` into `raydium.launchpad.claimPlatformFee({...})`. But
+the SDK only auto-fetches the pool's vault address (`vaultB`) when `mintB`
+is NOT provided — passing it skips that lookup, leaving `vaultB` blank.
+Fix: removed the `mintB: NATIVE_MINT` line entirely so the SDK looks up
+both `mintB` and `vaultB` itself from the on-chain pool. User confirmed the
+coin's fee vault genuinely exists on-chain (found it directly on Solscan:
+`6cJLxVw59AqKawc4hU2r8TrwP9tzFwWotuE9KfZpJMna`), ruling out "token already
+migrated/pool doesn't exist" as the cause.
+
+**Fix #3 — IMPLEMENTED & PUSHED to `tokensite` main, bigger bug**: after
+Fix #2, the claim button said "Claimed to treasury" but nothing ever
+appeared on Solscan — transaction fully vanished from Phantom's history
+too (not failed, not pending, just gone). Root cause, confirmed by reading
+the exact pinned SDK's compiled `txTool` execute() implementation: for a
+browser wallet (non-keypair owner, using `signAllTransactions`), `execute()`
+calls `connection.sendRawTransaction(...)` with `skipPreflight: true` and
+returns the signature **immediately** — it never checks whether the
+transaction actually gets confirmed by the network. The app was treating
+"got a signature back" as "succeeded." If the tx then silently drops
+(which happened twice), the app has no way to know and reports false
+success. This affects `claimPlatformFees()` AND `launchToken()` equally
+(same `execute()` pattern) — **`launchToken()` still has this bug,
+un-fixed, awaiting permission to touch it.**
+
+Fix applied to `claimPlatformFees()` only (scope: claim button): added a
+`waitForConfirmation()` helper that polls `connection.getSignatureStatuses()`
+every 2s for up to 30s after sending, throws a clear error if the tx failed
+on-chain or never confirmed in time (with a Solscan link to check manually),
+and only returns success once actually confirmed. This mirrors the existing
+project pattern for the no-websocket Alchemy free tier (poll + wait, not
+subscribe) already used in `shillit-test`'s send scripts.
+
+**Reassurance given to user**: because the transaction never actually
+confirmed on both failed attempts, the accrued platform fee never left the
+coin's on-chain fee vault — nothing was lost or sent elsewhere. Verified by
+grepping both `tokensite` and `shillit-test` for the treasury/admin/platform
+addresses: the treasury address appears in exactly one place in the whole
+codebase (the `AdminClaim.jsx` gate), and `shillit-test` has no wallet
+addresses hardcoded anywhere (it's a disconnected dev/test harness) — no
+sign of any code path that could redirect claimed funds elsewhere.
 
 ## TONE / RELATIONSHIP
 
