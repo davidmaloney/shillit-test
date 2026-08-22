@@ -653,6 +653,51 @@ creator uses this** — plan is: user launches one real cheap test coin on
 mainnet through the live site with the 2-minute window, confirms claim
 actually delivers tokens, then this session reverts the override.
 
+## ROOT-CAUSE FINDING: launch failed with "Transaction was not sent" — deeper SDK bug
+
+**Symptom**: after adding the vesting-lock feature and the launch confirmation
+check, clicking "Launch coin" immediately errored "Transaction was not sent,"
+before reaching the vesting step.
+
+**Root cause, confirmed by reading the installed SDK's compiled
+`txTool.mjs` execute() implementation directly**: `launchToken()` has always
+called `execute({ sequentially: true })` for `createLaunchpad` (a
+multi-transaction/`MakeMultiTxData` builder). For a BROWSER WALLET
+(`signAllTransactions`, not a raw keypair — our exact case), the SDK's
+`sequentially: true` path fires each transaction via
+`connection.sendTransaction(...)` inside an async function that is called
+but **never awaited** (`return I(), {txIds: [], signedTxs: L}` — a comma
+expression that kicks off `I()` in the background and returns immediately
+with an empty `txIds` array). There is never a real transaction id available
+synchronously. This bug has been present since the very first version of
+`launchToken()` — before the confirmation-check fix, it just silently
+resulted in a blank `Tx:` line in the UI (never thrown/surfaced); the new
+`if (!txId) throw ...` check made it surface as a hard error.
+
+The SDK's OTHER path — used when `sequentially` is NOT passed — properly
+`await`s `connection.sendTransaction(...)` for each transaction in a loop
+and returns real ids: `{txIds: q, signedTxs: L}`. This path works correctly
+for both single- and multi-transaction sends.
+
+**Fix — IMPLEMENTED & PUSHED to `tokensite` main**: changed
+`execute({ sequentially: true })` to `execute({})` for the `createLaunchpad`
+call in `launchToken()`. Nothing else about the call changed.
+
+**Caveat worth remembering**: because the broken path still fires the send
+in the background (just without awaiting it), a launch attempt that hit this
+error may have ACTUALLY landed on-chain anyway, unconfirmed and untracked by
+the app. If a real coin turns up on Solscan/Phantom from an attempt that
+showed this error, that's why — check before assuming nothing happened. No
+vesting lock would exist for such a coin (the app threw before reaching that
+step), but `create_vesting_account` could still be called for it manually
+later since it's a fully independent instruction.
+
+**Also fixed same session**: moved the new "Claim vested tokens" section
+from the bottom of the `/launch` page into the same sticky launch card
+(right under the Launch button), always visible to any connected wallet —
+user feedback was that the original bottom-of-page placement required
+scrolling past the whole explainer and wasn't seen on phone.
+
 ## TONE / RELATIONSHIP
 
 User is non-deeply-technical but capable; works from phone (laptop is
