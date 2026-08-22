@@ -698,6 +698,15 @@ from the bottom of the `/launch` page into the same sticky launch card
 user feedback was that the original bottom-of-page placement required
 scrolling past the whole explainer and wasn't seen on phone.
 
+**Follow-up fix — form fields reset on connect (Safari)**: user reported
+filling in coin name/ticker/logo, then clicking Connect, which deep-links to
+the Phantom app and back — on return the page reloads and wipes what was
+typed. Fix: restructured `/launch` so the coin-detail fields (name, ticker,
+logo) only render AFTER a wallet is connected — before connecting, the card
+shows only a "Connect your wallet to start" prompt with a one-line
+explanation of why. This sidesteps the state-loss entirely rather than
+trying to persist form state through an unpredictable reload.
+
 ## TONE / RELATIONSHIP
 
 User is non-deeply-technical but capable; works from phone (laptop is
