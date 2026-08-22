@@ -10,6 +10,10 @@ sessions so work doesn't restart from zero.
   and proposed fixes; wait for a go-ahead before editing anything.
 - **Before editing any file, save a backup of its original content first**
   (so it can be reverted), then make the change.
+- On `tokensite`: after making an approved change, push straight to `main`
+  (no feature branches) so the user can just `git pull` then
+  `docker compose up -d --build` on the server. User does not want to deal
+  with branches.
 - **Keep answers short.** Yes/no where possible. Don't over-explain.
 - User is non-technical but capable. Explain findings in plain language,
   no jargon, when asked for one.
