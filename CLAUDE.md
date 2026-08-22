@@ -724,6 +724,33 @@ separate warning if the vesting lock didn't complete. Also added a visible
 "still being tested, don't launch or buy" notice at the top of `/launch`
 per user request, in case anyone stumbles onto the unlinked page.
 
+**Confirmed on Solscan**: the user's "~$10 seemed too high" concern traced
+to exactly this — 3 separate real "Create pool TEST-WSOL on Raydium
+LaunchLab" transactions were found on their wallet from one testing
+session, each a genuine successful launch (confirmed via a transaction
+detail page, not guessed). Cause: before the fix above, a vesting-lock
+failure gave no sign the coin already existed, so the user retried
+multiple times, each retry creating a brand new real coin and paying full
+rent again. Not a pricing bug — 3 launches x ~$1.50-2.50 each roughly
+matches the total. (Briefly suspected these were unrelated pump.fun
+activity due to a misleading "pump" label in Solscan's list view — ruled
+out by opening the actual transaction detail page, which named Raydium
+LaunchLab explicitly. Lesson: Solscan's summary list labels can mislead;
+the transaction detail page is the reliable source.)
+
+**Follow-up fix — nothing stopped a repeat launch after success**: user
+correctly pointed out that even with the mint now showing, the "Launch
+coin" button was still sitting there active after a success, so a confused
+or impatient user could still click it again and create another real coin,
+unbounded. Fix — IMPLEMENTED & PUSHED to `tokensite` main: once `result` is
+set (a coin was successfully created), the button is replaced with a
+distinctly-styled "Launch another coin" action that explicitly resets
+name/ticker/logo state first — requires deliberate intent, not a passive
+re-click of the same button. Does not add friction to genuine error retries
+(price-feed failure, wallet rejection, etc.) since those never set `result`
+in the first place, so the normal Launch button stays immediately available
+when no coin was actually created.
+
 **Cost reality check**: launching creates several new Solana accounts
 (mint, pool, 2 vaults, metadata, now also the vesting record) — real SOL
 rent for each, unrelated to any bug. User's "should cost nothing"
