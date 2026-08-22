@@ -707,6 +707,28 @@ shows only a "Connect your wallet to start" prompt with a one-line
 explanation of why. This sidesteps the state-loss entirely rather than
 trying to persist form state through an unpredictable reload.
 
+**Follow-up fix — a failed vesting-lock was hiding a successful launch**:
+user reported spending real SOL twice and getting `InsufficientFundsForRent`
+on a second attempt. Root cause: the launch and the vesting-lock are two
+separate transactions; if the main launch succeeds but the vesting-lock then
+fails (e.g. wallet too low on SOL for that account's rent), the old code let
+the error propagate and hid the fact a real coin already existed — risking
+exactly this: a second full re-launch (and re-paying all its rent) because
+the user had no way to know the first one worked.
+
+Fix — IMPLEMENTED & PUSHED to `tokensite` main: the vesting-lock step now has
+its own try/catch inside `launchToken()`; on failure it returns
+`{ mint, txId, vestingError }` instead of throwing, so the UI always shows
+"your coin is live" with the mint once the main launch confirms, plus a
+separate warning if the vesting lock didn't complete. Also added a visible
+"still being tested, don't launch or buy" notice at the top of `/launch`
+per user request, in case anyone stumbles onto the unlinked page.
+
+**Cost reality check**: launching creates several new Solana accounts
+(mint, pool, 2 vaults, metadata, now also the vesting record) — real SOL
+rent for each, unrelated to any bug. User's "should cost nothing"
+expectation was based on `devBuySol=0`, not accounting for this rent.
+
 ## TONE / RELATIONSHIP
 
 User is non-deeply-technical but capable; works from phone (laptop is
