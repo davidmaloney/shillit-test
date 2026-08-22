@@ -535,6 +535,19 @@ codebase (the `AdminClaim.jsx` gate), and `shillit-test` has no wallet
 addresses hardcoded anywhere (it's a disconnected dev/test harness) — no
 sign of any code path that could redirect claimed funds elsewhere.
 
+**Fix #4 — IMPLEMENTED & PUSHED to `tokensite` main**: `launchToken()` had
+the identical blind-success bug as Fix #3 (same `execute()` pattern, same
+missing confirmation check) — a coin launch could report "your coin is
+live" with a mint address even if the transaction silently dropped, since
+launching costs real SOL this was flagged as equally serious. Applied the
+same `waitForConfirmation()` helper (already added to `raydiumLaunch.js` for
+the claim fix) to `launchToken()` too: after `execute()`, extract the txId,
+throw if empty, poll for real confirmed/finalized status for up to 30s
+before returning success. Verified safe before pushing: `LaunchToken.jsx`
+already wraps its `launchToken()` call in try/catch, so a new thrown error
+(timeout or on-chain failure) surfaces as a normal error message — no other
+file needed changing, nothing else in the launch flow touched.
+
 ## TONE / RELATIONSHIP
 
 User is non-deeply-technical but capable; works from phone (laptop is
