@@ -581,6 +581,36 @@ already wraps its `launchToken()` call in try/catch, so a new thrown error
 (timeout or on-chain failure) surfaces as a normal error message — no other
 file needed changing, nothing else in the launch flow touched.
 
+## ROOT-CAUSE FINDING: coin logo upload was never actually wired up
+
+**Symptom** (user asked directly): "is the image upload for launching a coin
+baked into the backend and working?"
+
+**Finding**: `backend/src/routes/launch.js` (serves `/api/launch/metadata` —
+saves the uploaded logo + a metadata JSON, returns a permanent `uri` for the
+on-chain token) existed as a file but was **never imported or mounted** in
+`server.js`, and nothing served the `/uploads/img/*` / `/uploads/meta/*`
+paths it wrote to. So `uploadLogo()` in `raydiumLaunch.js` (called by
+`LaunchToken.jsx` before every launch, result is REQUIRED as the on-chain
+`uri`) would have hit a 404 and thrown "Logo upload failed" before ever
+reaching the blockchain step. This looks like a previous session wrote the
+route file but forgot the two lines that actually wire it in.
+
+**Fix — IMPLEMENTED & PUSHED to `tokensite` main**: added
+`import launchRouter from "./routes/launch.js"` +
+`app.use("/api/launch", launchRouter)`, and a new
+`GET /uploads/:type(img|meta)/:filename` route mirroring the existing
+`/media/:filename` pattern exactly (same sanitization, same `res.sendFile`).
+`UPLOAD_DIR` (`/data/uploads`) is already a persistent Docker volume shared
+with the website's own image uploads (`uploads_data` in docker-compose) —
+`launch.js`'s `img/`/`meta/` subfolders live inside it with zero collision
+risk against the website's own flat-stored images.
+
+Not investigated further (out of scope for this fix): how the one real
+mainnet test launch got a working-enough `uri` before this was wired up —
+possibly the old placeholder (`arweave.net/placeholder`) was used at that
+time instead of a real uploaded logo.
+
 ## TONE / RELATIONSHIP
 
 User is non-deeply-technical but capable; works from phone (laptop is
