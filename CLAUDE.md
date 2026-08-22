@@ -518,6 +518,39 @@ success. This affects `claimPlatformFees()` AND `launchToken()` equally
 (same `execute()` pattern) — **`launchToken()` still has this bug,
 un-fixed, awaiting permission to touch it.**
 
+**Fix #5 — IMPLEMENTED & PUSHED to `tokensite` main, product-level addition**:
+after Fix #3's confirmation check started working correctly, a real claim
+attempt returned on-chain custom error 6009 = `NoAssetsToCollect` (looked up
+directly in Raydium's official IDL, `raydium-idl` repo on GitHub — this repo
+is the authoritative source for the on-chain program, better than reading
+minified SDK JS). This is not a bug — Raydium's program has TWO separate
+fee-holding places: (a) a per-coin vault, drained via `claim_platform_fee`
+(what the button used, correctly reporting nothing to collect for this
+low-volume test coin), and (b) a **shared platform-wide vault** (one bucket
+for the whole platform, PDA = `getPdaPlatformVault(programId, platformId,
+NATIVE_MINT)`), drained via `claim_platform_fee_from_vault` — a different
+instruction the installed SDK version (0.2.42-alpha, confirmed same in the
+newest available 0.2.x-alpha release too) does NOT wrap in a convenience
+method. User specifically wants "claim everything in one click" as the
+product scales, which is exactly what this second mechanism is for.
+
+Verified on Solscan the shared vault (`6cJLxVw59AqKawc4hU2r8TrwP9tzFwWotuE9KfZpJMna`,
+confirmed by direct PDA computation to be this exact `platform_fee_vault`,
+NOT a per-pool vault as earlier notes assumed) actually holds:
+- 0.002184765 SOL — this is NOT fee money, it's the mandatory Solana rent
+  reserve for a 165-byte token account. Don't mistake this number for
+  claimable funds again.
+- 0.000145485 WSOL (~$0.01) — this IS real, claimable platform fee.
+
+Implemented `claimPlatformFeeFromVault()` in `raydiumLaunch.js` by hand
+(raw `TransactionInstruction`, not via the SDK's launchpad module) since the
+SDK doesn't expose it yet. Account list, seeds, and discriminator
+(`[117,241,198,168,248,218,80,29]`) all taken directly from Raydium's
+official `raydium_launchpad.json` IDL, not guessed. Added a second button
+in `AdminClaim.jsx`, "Claim all from platform vault", alongside the
+existing per-coin claim button — both use the same treasury-wallet gate and
+the same `waitForConfirmation()` safety check.
+
 Fix applied to `claimPlatformFees()` only (scope: claim button): added a
 `waitForConfirmation()` helper that polls `connection.getSignatureStatuses()`
 every 2s for up to 30s after sending, throws a clear error if the tx failed
