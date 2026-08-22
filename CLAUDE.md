@@ -619,6 +619,40 @@ mainnet test launch got a working-enough `uri` before this was wired up —
 possibly the old placeholder (`arweave.net/placeholder`) was used at that
 time instead of a real uploaded logo.
 
+## ROOT-CAUSE FINDING: dev-lock vesting was never actually assigned to anyone
+
+**User asked directly**: "we still have to set up the time vesting lock for
+the dev, no?"
+
+**Finding**: `totalLockedAmount`/`cliffPeriod`/`unlockPeriod` passed to
+`createLaunchpad` only reserve the 5% and set the POOL's overall vesting
+schedule. They do NOT create a `vesting_record` naming who can claim it.
+That requires a separate on-chain instruction, `create_vesting_account`,
+which our launch code never called. Without it, the locked 5% would sit
+permanently unclaimable by anyone — a real gap, confirmed against Raydium's
+own IDL (`create_vesting_account`, `claim_vested_token` instructions).
+
+**Fix — IMPLEMENTED & PUSHED to `tokensite` main**: `launchToken()` now
+sends a second transaction right after the launch confirms, calling
+`create_vesting_account` with `beneficiary = wallet.publicKey` — i.e.
+whoever's wallet just launched the coin, never our treasury (non-custodial,
+matches the legal design principle). Also added `claimVestedTokens()` and a
+"Claim vested tokens" section on the `/launch` page (mint input + claim
+button, visible to any connected wallet) — the on-chain program itself
+enforces that only the true beneficiary can actually receive anything.
+Both built by hand from Raydium's official IDL discriminators/account
+lists, same proven method as the platform-fee-vault claim.
+
+**IMPORTANT — currently in TEST mode, not real numbers**: `raydiumLaunch.js`
+has `TEST_CLIFF_SECONDS = 120` and `TEST_UNLOCK_SECONDS = 1` temporarily
+overriding the real 3yr/3yr schedule, so the full flow (launch → lock →
+wait → claim) can be proven on real mainnet in ~2 minutes instead of years.
+The real formula is commented out right next to it in `launchToken()`,
+ready to swap back. **Must revert to the real 3yr/3yr before any real
+creator uses this** — plan is: user launches one real cheap test coin on
+mainnet through the live site with the 2-minute window, confirms claim
+actually delivers tokens, then this session reverts the override.
+
 ## TONE / RELATIONSHIP
 
 User is non-deeply-technical but capable; works from phone (laptop is
