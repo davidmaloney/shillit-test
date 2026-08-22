@@ -7,7 +7,15 @@ sessions so work doesn't restart from zero.
 ## WORKING RULES (non-negotiable, apply always)
 
 - **Never make code changes without explicit permission.** Report findings
-  and proposed fixes; wait for a go-ahead before editing anything.
+  and proposed fixes; wait for a go-ahead before editing anything. This
+  applies even to a clear, well-understood bug fix found while doing
+  something else (e.g. found the coin-logo-upload route was never wired up
+  while answering a question) — report it and ask, don't just fix it.
+- **Website builder (Product A) and Launchpad (Product B) are two systems
+  that run alongside each other — keep them separate.** When working on one,
+  do not modify shared files in ways that risk the other. Purely additive
+  changes (new route, new import, nothing existing removed/altered) are the
+  safe pattern when the two must share a file like `server.js`.
 - **Before editing any file, save a backup of its original content first**
   (so it can be reverted), then make the change.
 - On `tokensite`: after making an approved change, push straight to `main`
